@@ -1,24 +1,698 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Information Failure</title>
-        <link rel="icon" type="image/x-icon" href="static/favicon.ico">
-        <link rel="stylesheet" href="static/style.css">
-    </head>
-    <body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InformationFailure</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background-color: #f5f5f5;
+        }
+
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-screen.hidden {
+            display: none;
+        }
+
+        .loading-title {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #1a1a1a;
+        }
+
+        .loading-subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .automaton-container {
+            margin: 2rem 0;
+        }
+
+        .automaton-svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .state-circle {
+            fill: white;
+            stroke: #1a1a1a;
+            stroke-width: 2;
+            transition: fill 0.3s;
+        }
+
+        .state-circle.active {
+            fill: #1a1a1a;
+        }
+
+        .state-text {
+            font-size: 14px;
+            fill: #1a1a1a;
+            font-family: 'Courier New', monospace;
+            transition: fill 0.3s;
+        }
+
+        .state-text.active {
+            fill: white;
+        }
+
+        .input-display {
+            margin-top: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        .tape-input {
+            background: white;
+            border: 2px solid #1a1a1a;
+            padding: 0.5rem 1rem;
+            min-width: 200px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #1a1a1a;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .main-content {
+            display: none;
+        }
+
+        .main-content.visible {
+            display: block;
+        }
+
+        header {
+            background: white;
+            border-bottom: 3px solid #1a1a1a;
+            padding: 2rem 1rem;
+        }
+
+        .header-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+
+        .site-title {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: #1a1a1a;
+        }
+
+        .site-description {
+            color: #666;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+
+        .notation {
+            text-align: right;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .navigation {
+            background: white;
+            border-bottom: 2px solid #ccc;
+            padding: 1.5rem 1rem;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .nav-title {
+            font-size: 1.2rem;
+            color: #1a1a1a;
+        }
+
+        .state-label {
+            color: #666;
+        }
+
+        .lba-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .nav-btn {
+            background: white;
+            border: 2px solid #1a1a1a;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: #1a1a1a;
+            color: white;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .tape-viewport {
+            flex: 1;
+            overflow: hidden;
+            border: 2px solid #1a1a1a;
+            background: white;
+        }
+
+        .tape-track {
+            display: flex;
+            transition: transform 0.3s ease;
+        }
+
+        .tape-cell {
+            min-width: 100%;
+            padding: 1rem;
+            text-align: center;
+            border-right: 2px solid #e0e0e0;
+        }
+
+        .tape-cell:last-child {
+            border-right: none;
+        }
+
+        .tape-cell.active {
+            background: #1a1a1a;
+            color: white;
+        }
+
+        .cell-index {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-bottom: 0.25rem;
+        }
+
+        .cell-name {
+            font-weight: bold;
+        }
+
+        .position-indicators {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        .indicator {
+            width: 40px;
+            height: 4px;
+            background: #ddd;
+            transition: background 0.3s;
+        }
+
+        .indicator.active {
+            background: #1a1a1a;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 3rem 1rem;
+        }
+
+        .notes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .notes-title {
+            font-size: 1.5rem;
+            color: #1a1a1a;
+        }
+
+        .notes-count {
+            color: #666;
+        }
+
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .note-card {
+            background: white;
+            border: 2px solid #1a1a1a;
+            padding: 1.5rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .note-card:hover {
+            box-shadow: 8px 8px 0 #1a1a1a;
+            transform: translate(-4px, -4px);
+        }
+
+        .note-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .note-icon {
+            font-size: 1.5rem;
+        }
+
+        .note-date {
+            color: #666;
+            font-size: 0.85rem;
+        }
+
+        .note-title {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: #1a1a1a;
+        }
+
+        .note-excerpt {
+            color: #555;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+
+        .note-category {
+            color: #666;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            padding: 0.25rem 0.5rem;
+            background: #f0f0f0;
+            display: inline-block;
+        }
+
+        .note-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .tag {
+            background: white;
+            border: 1px solid #1a1a1a;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        footer {
+            background: white;
+            border-top: 2px solid #ccc;
+            padding: 2rem 1rem;
+            text-align: center;
+            margin-top: 4rem;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .site-title {
+                font-size: 1.5rem;
+            }
+
+            .header-top {
+                flex-direction: column;
+            }
+
+            .notation {
+                text-align: left;
+            }
+
+            .notes-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .lba-controls {
+                flex-direction: column;
+            }
+
+            .tape-viewport {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <h1 class="loading-title">Initializing Automaton...</h1>
+        <p class="loading-subtitle">DFA: Accepting binary strings divisible by 4</p>
+        
+        <div class="automaton-container">
+            <svg width="600" height="180" viewBox="0 0 600 180" class="automaton-svg" id="dfaSvg">
+                <defs>
+                    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#1a1a1a" />
+                    </marker>
+                </defs>
+                
+                <!-- Start arrow -->
+                <line x1="30" y1="90" x2="62" y2="90" stroke="#1a1a1a" stroke-width="2" marker-end="url(#arrow)" />
+                
+                <!-- State 0 -->
+                <g id="state0">
+                    <circle cx="90" cy="90" r="25" class="state-circle" />
+                    <text x="90" y="95" text-anchor="middle" class="state-text">q₀</text>
+                </g>
+                
+                <!-- Transition 0 to 1 -->
+                <line x1="115" y1="90" x2="175" y2="90" stroke="#1a1a1a" stroke-width="2" marker-end="url(#arrow)" />
+                
+                <!-- State 1 -->
+                <g id="state1">
+                    <circle cx="200" cy="90" r="25" class="state-circle" />
+                    <text x="200" y="95" text-anchor="middle" class="state-text">q₁</text>
+                </g>
+                
+                <!-- Transition 1 to 2 -->
+                <line x1="225" y1="90" x2="285" y2="90" stroke="#1a1a1a" stroke-width="2" marker-end="url(#arrow)" />
+                
+                <!-- State 2 -->
+                <g id="state2">
+                    <circle cx="310" cy="90" r="25" class="state-circle" />
+                    <text x="310" y="95" text-anchor="middle" class="state-text">q₂</text>
+                </g>
+                
+                <!-- Transition 2 to 3 -->
+                <line x1="335" y1="90" x2="395" y2="90" stroke="#1a1a1a" stroke-width="2" marker-end="url(#arrow)" />
+                
+                <!-- State 3 (accepting) -->
+                <g id="state3">
+                    <circle cx="420" cy="90" r="30" fill="none" stroke="#1a1a1a" stroke-width="2" />
+                    <circle cx="420" cy="90" r="25" class="state-circle" />
+                    <text x="420" y="95" text-anchor="middle" class="state-text">q₃</text>
+                </g>
+            </svg>
+        </div>
+
+        <div class="input-display">
+            <span>Input Tape:</span>
+            <div class="tape-input" id="tapeInput">_</div>
+        </div>
+
+        <div class="loading-dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
         <header>
-            <h1>Information Failure</h1>
+            <div class="header-container">
+                <div class="header-top">
+                    <div>
+                        <h1 class="site-title">InformationFailure</h1>
+                        <p class="site-description">
+                            Hello, welcome to my personal blog about formal grammars, automata, hardware, networks, electronics and math.
+                        </p>
+                    </div>
+                    <div class="notation">
+                        <div>∀x ∈ L</div>
+                        <div>M accepts x</div>
+                    </div>
+                </div>
+            </div>
         </header>
+
+        <nav class="navigation">
+            <div class="nav-container">
+                <div class="nav-header">
+                    <h2 class="nav-title">Linear Bounded Automaton Navigator</h2>
+                    <div class="state-label">State: q<span id="stateNumber">0</span></div>
+                </div>
+
+                <div class="lba-controls">
+                    <button class="nav-btn" id="btnLeft" onclick="moveLeft()">◄</button>
+                    
+                    <div class="tape-viewport">
+                        <div class="tape-track" id="tapeTrack">
+                            <div class="tape-cell active" data-index="0">
+                                <div class="cell-index">Cell 0</div>
+                                <div class="cell-name">All</div>
+                            </div>
+                            <div class="tape-cell" data-index="1">
+                                <div class="cell-index">Cell 1</div>
+                                <div class="cell-name">Formal Grammars & Automata</div>
+                            </div>
+                            <div class="tape-cell" data-index="2">
+                                <div class="cell-index">Cell 2</div>
+                                <div class="cell-name">Hardware & Architecture</div>
+                            </div>
+                            <div class="tape-cell" data-index="3">
+                                <div class="cell-index">Cell 3</div>
+                                <div class="cell-name">Electronics</div>
+                            </div>
+                            <div class="tape-cell" data-index="4">
+                                <div class="cell-index">Cell 4</div>
+                                <div class="cell-name">Mathematics</div>
+                            </div>
+                            <div class="tape-cell" data-index="5">
+                                <div class="cell-index">Cell 5</div>
+                                <div class="cell-name">Computer Networks</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="nav-btn" id="btnRight" onclick="moveRight()">►</button>
+                </div>
+
+                <div class="position-indicators" id="indicators">
+                    <div class="indicator active"></div>
+                    <div class="indicator"></div>
+                    <div class="indicator"></div>
+                    <div class="indicator"></div>
+                    <div class="indicator"></div>
+                    <div class="indicator"></div>
+                </div>
+            </div>
+        </nav>
+
         <main>
-            <section>
-                <h2>About</h2>
-                <p>This is a project about information failure.</p>
-            </section>
+            <div class="notes-header">
+                <h2 class="notes-title">Recent Notes</h2>
+                <div class="notes-count" id="notesCount">9 entries</div>
+            </div>
+
+            <div class="notes-grid" id="notesGrid">
+            </div>
         </main>
+
         <footer>
-            <p>&copy; 2025 Information Failure</p>
+            <p>A digital garden of formal systems and computational theory</p>
+            <p style="margin-top: 0.5rem; font-size: 0.85rem;">∎</p>
         </footer>
-    </body>
+    </div>
+
+    <script>
+        const notes = [
+            {
+                id: 1,
+                title: 'Pumping Lemma for Context-Free Languages',
+                category: 'Formal Grammars & Automata',
+                date: '2025-11-10',
+                excerpt: 'An exploration of the pumping lemma and its applications in proving languages are not context-free. Includes examples and proof techniques.',
+                tags: ['CFL', 'Proof Techniques', 'Theory']
+            },
+        ];
+
+        const categories = [
+            'All',
+            'Formal Grammars & Automata',
+            'Hardware & Architecture',
+            'Electronics',
+            'Mathematics',
+            'Computer Networks'
+        ];
+
+        let currentPosition = 0;
+        let dfaState = 0;
+        let inputString = '';
+		
+        function animateDFA() {
+            const states = ['state0', 'state1', 'state2', 'state3'];
+            
+
+            states.forEach(stateId => {
+                const circle = document.querySelector(`#${stateId} .state-circle`);
+                const text = document.querySelector(`#${stateId} .state-text`);
+                if (circle) circle.classList.remove('active');
+                if (text) text.classList.remove('active');
+            });
+
+            const currentCircle = document.querySelector(`#${states[dfaState]} .state-circle`);
+            const currentText = document.querySelector(`#${states[dfaState]} .state-text`);
+            if (currentCircle) currentCircle.classList.add('active');
+            if (currentText) currentText.classList.add('active');
+
+            inputString += Math.random() > 0.5 ? '1' : '0';
+            document.getElementById('tapeInput').textContent = inputString.slice(-16) || '_';
+
+            dfaState = (dfaState + 1) % 4;
+        }
+
+        const dfaInterval = setInterval(animateDFA, 500);
+
+        setTimeout(() => {
+            clearInterval(dfaInterval);
+            document.getElementById('loadingScreen').classList.add('hidden');
+            document.getElementById('mainContent').classList.add('visible');
+        }, 3000);
+
+        function updateTape() {
+            const cells = document.querySelectorAll('.tape-cell');
+            const indicators = document.querySelectorAll('.indicator');
+            const track = document.getElementById('tapeTrack');
+
+            track.style.transform = `translateX(-${currentPosition * 100}%)`;
+
+            cells.forEach((cell, index) => {
+                if (index === currentPosition) {
+                    cell.classList.add('active');
+                } else {
+                    cell.classList.remove('active');
+                }
+            });
+
+            indicators.forEach((indicator, index) => {
+                if (index === currentPosition) {
+                    indicator.classList.add('active');
+                } else {
+                    indicator.classList.remove('active');
+                }
+            });
+
+            document.getElementById('stateNumber').textContent = currentPosition;
+
+            document.getElementById('btnLeft').disabled = currentPosition === 0;
+            document.getElementById('btnRight').disabled = currentPosition === categories.length - 1;
+
+            filterNotes();
+        }
+
+        function moveLeft() {
+            if (currentPosition > 0) {
+                currentPosition--;
+                updateTape();
+            }
+        }
+
+        function moveRight() {
+            if (currentPosition < categories.length - 1) {
+                currentPosition++;
+                updateTape();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') moveLeft();
+            if (e.key === 'ArrowRight') moveRight();
+        });
+
+        function renderNotes(notesToRender) {
+            const grid = document.getElementById('notesGrid');
+            grid.innerHTML = notesToRender.map(note => `
+                <article class="note-card">
+                    <div class="note-meta">
+                        <div class="note-icon">📄</div>
+                        <div class="note-date">${note.date}</div>
+                    </div>
+                    <h3 class="note-title">${note.title}</h3>
+                    <p class="note-excerpt">${note.excerpt}</p>
+                    <div class="note-category">${note.category}</div>
+                    <div class="note-tags">
+                        ${note.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                    </div>
+                </article>
+            `).join('');
+
+            document.getElementById('notesCount').textContent = 
+                `${notesToRender.length} ${notesToRender.length === 1 ? 'entry' : 'entries'}`;
+        }
+
+        function filterNotes() {
+            const selectedCategory = categories[currentPosition];
+            const filtered = selectedCategory === 'All' 
+                ? notes 
+                : notes.filter(note => note.category === selectedCategory);
+            renderNotes(filtered);
+        }
+
+        // Initial render
+        updateTape();
+        filterNotes();
+    </script>
+
+</body>
 </html>
